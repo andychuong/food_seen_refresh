@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FoodSeen.API.Models.Requests;
 
+/// <summary>
+/// Request model for user registration.
+/// </summary>
 public class RegisterRequest
 {
     [Required]
@@ -24,6 +27,9 @@ public class RegisterRequest
     public string? LastName { get; set; }
 }
 
+/// <summary>
+/// Request model for user login.
+/// </summary>
 public class LoginRequest
 {
     [Required]
@@ -34,31 +40,11 @@ public class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Request model for token refresh and logout operations.
+/// </summary>
 public class RefreshTokenRequest
 {
     [Required]
     public string RefreshToken { get; set; } = string.Empty;
-}
-
-public class ForgotPasswordRequest
-{
-    [Required]
-    [EmailAddress]
-    public string Email { get; set; } = string.Empty;
-}
-
-public class ResetPasswordRequest
-{
-    [Required]
-    public string Token { get; set; } = string.Empty;
-
-    [Required]
-    [MinLength(8)]
-    public string NewPassword { get; set; } = string.Empty;
-}
-
-public class VerifyEmailRequest
-{
-    [Required]
-    public string Token { get; set; } = string.Empty;
 }

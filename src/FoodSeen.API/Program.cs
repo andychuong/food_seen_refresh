@@ -1,19 +1,29 @@
 using System.Text;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using FoodSeen.API.Infrastructure;
 using FoodSeen.API.Infrastructure.Auth;
 using FoodSeen.API.Infrastructure.Data;
 using FoodSeen.API.Repositories.Implementations;
 using FoodSeen.API.Repositories.Interfaces;
 using FoodSeen.API.Services.Implementations;
 using FoodSeen.API.Services.Interfaces;
+using FoodSeen.API.Validators;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using NetTopologySuite;
+using NetTopologySuite.Geometries;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+
+// Add FluentValidation
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();
 builder.Services.AddEndpointsApiExplorer();
 
 // Configure Swagger with JWT support
@@ -88,6 +98,11 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
+// Register GeometryFactory as singleton for consistent geospatial operations
+// Uses WGS84 (SRID 4326) - the standard GPS coordinate system
+builder.Services.AddSingleton<GeometryFactory>(_ =>
+    NtsGeometryServices.Instance.CreateGeometryFactory(srid: GeoConstants.WGS84_SRID));
+
 // Configure CORS
 builder.Services.AddCors(options =>
 {
@@ -104,11 +119,18 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Apply migrations automatically in development
+// Apply migrations automatically (skip for in-memory database in tests)
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.Migrate();
+    if (dbContext.Database.IsRelational())
+    {
+        dbContext.Database.Migrate();
+    }
+    else
+    {
+        dbContext.Database.EnsureCreated();
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -125,3 +147,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Make Program accessible for integration tests
+public partial class Program { }

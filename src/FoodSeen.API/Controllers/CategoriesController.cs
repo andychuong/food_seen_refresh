@@ -5,9 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FoodSeen.API.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-public class CategoriesController : ControllerBase
+/// <summary>
+/// Controller for managing food event categories.
+/// Categories help users filter and discover relevant food events.
+/// </summary>
+public class CategoriesController : ApiControllerBase
 {
     private readonly ICategoryRepository _categoryRepository;
     private readonly IPostService _postService;
@@ -18,6 +20,9 @@ public class CategoriesController : ControllerBase
         _postService = postService;
     }
 
+    /// <summary>
+    /// Gets all available categories.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories()
     {
@@ -32,12 +37,15 @@ public class CategoriesController : ControllerBase
         return Ok(dtos);
     }
 
+    /// <summary>
+    /// Gets all posts in a specific category.
+    /// </summary>
     [HttpGet("{id}/posts")]
     public async Task<ActionResult<IEnumerable<PostDto>>> GetPostsByCategory(Guid id)
     {
         var category = await _categoryRepository.GetByIdAsync(id);
         if (category == null)
-            return NotFound();
+            return NotFound(ApiError.NotFound("Category not found"));
 
         var posts = await _postService.GetPostsByCategoryAsync(id);
         return Ok(posts);
