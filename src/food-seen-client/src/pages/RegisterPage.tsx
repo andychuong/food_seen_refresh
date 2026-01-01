@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { register } = useAuth();
+  const { addToast } = useToast();
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -51,6 +53,7 @@ export default function RegisterPage() {
       });
 
       if (result.success) {
+        addToast('Account created successfully! Welcome to Food Seen.', 'success');
         navigate('/');
       } else {
         setError(result.error || 'Registration failed');

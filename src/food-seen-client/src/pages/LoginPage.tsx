@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { addToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -23,6 +25,7 @@ export default function LoginPage() {
     try {
       const result = await login({ email, password });
       if (result.success) {
+        addToast('Welcome back!', 'success');
         navigate('/');
       } else {
         setError(result.error || 'Login failed');

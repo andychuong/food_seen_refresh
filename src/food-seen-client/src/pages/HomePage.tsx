@@ -1,35 +1,78 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { postsApi } from '@/services/api';
+import { postsApi, categoriesApi } from '@/services/api';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import PostCard from '@/components/features/PostCard';
 import RadiusSelector from '@/components/features/RadiusSelector';
 import LocationButton from '@/components/features/LocationButton';
 import ViewToggle, { type ViewMode } from '@/components/features/ViewToggle';
+import Pagination from '@/components/features/Pagination';
+import SearchBar from '@/components/features/SearchBar';
+import CategoryFilter from '@/components/features/CategoryFilter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
+const PAGE_SIZE = 12;
+
 export default function HomePage() {
   const [radiusKm, setRadiusKm] = useState(10);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const { location, loading: locationLoading, error: locationError, requestLocation } = useGeolocation();
 
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: categoriesApi.getAll,
+  });
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['posts', 'nearby', location?.latitude, location?.longitude, radiusKm],
-    queryFn: () =>
-      location
-        ? postsApi.getNearby(location.latitude, location.longitude, radiusKm, 1, 100)
-        : postsApi.getAll(1, 100),
+    queryKey: ['posts', 'nearby', location?.latitude, location?.longitude, radiusKm, page, activeSearch],
+    queryFn: () => {
+      if (activeSearch) {
+        return postsApi.search(activeSearch, page, PAGE_SIZE);
+      }
+      return location
+        ? postsApi.getNearby(location.latitude, location.longitude, radiusKm, page, PAGE_SIZE)
+        : postsApi.getAll(page, PAGE_SIZE);
+    },
     enabled: !locationLoading,
   });
+
+  // Filter by selected categories (client-side for simplicity)
+  const filteredItems = useMemo(() => {
+    if (!data?.items || selectedCategories.length === 0) {
+      return data?.items || [];
+    }
+    return data.items.filter((post) =>
+      post.categories.some((cat) =>
+        selectedCategories.some((selectedId) => {
+          const category = categories?.find((c) => c.id === selectedId);
+          return category?.name === cat;
+        })
+      )
+    );
+  }, [data?.items, selectedCategories, categories]);
 
   const mapCenter: [number, number] = location
     ? [location.latitude, location.longitude]
     : [37.7749, -122.4194]; // Default to SF
+
+  const handleSearch = (query: string) => {
+    setActiveSearch(query);
+    setPage(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div>
@@ -39,6 +82,27 @@ export default function HomePage() {
           Find free food events, samples, and promotions happening in your area.
         </p>
       </div>
+
+      {/* Search bar */}
+      <div className="mb-4">
+        <SearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          onSearch={handleSearch}
+          placeholder="Search events by title, description, or location..."
+        />
+      </div>
+
+      {/* Category filter */}
+      {categories && categories.length > 0 && (
+        <div className="mb-4">
+          <CategoryFilter
+            categories={categories}
+            selected={selectedCategories}
+            onChange={setSelectedCategories}
+          />
+        </div>
+      )}
 
       {/* Controls bar */}
       <div className="mb-6 p-4 rounded-lg bg-secondary/50">
@@ -68,6 +132,25 @@ export default function HomePage() {
         )}
       </div>
 
+      {/* Active search indicator */}
+      {activeSearch && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            Showing results for: <strong>"{activeSearch}"</strong>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearchQuery('');
+              setActiveSearch('');
+            }}
+          >
+            Clear
+          </Button>
+        </div>
+      )}
+
       {/* Loading state */}
       {isLoading && (
         <div className="flex items-center justify-center py-12">
@@ -88,14 +171,39 @@ export default function HomePage() {
         <>
           {viewMode === 'list' ? (
             /* List View */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {data.items.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredItems.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </div>
+
+              {filteredItems.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p>No food events found.</p>
+                  <p className="mt-2">Try adjusting your search or filters!</p>
+                </div>
+              )}
+
+              {/* Pagination */}
+              {data.totalPages > 1 && (
+                <div className="mt-8 space-y-4">
+                  <Pagination
+                    currentPage={data.page}
+                    totalPages={data.totalPages}
+                    onPageChange={handlePageChange}
+                    hasPreviousPage={data.hasPreviousPage}
+                    hasNextPage={data.hasNextPage}
+                  />
+                  <p className="text-center text-sm text-muted-foreground">
+                    Showing {(data.page - 1) * data.pageSize + 1} - {Math.min(data.page * data.pageSize, data.totalCount)} of {data.totalCount} events
+                  </p>
+                </div>
+              )}
+            </>
           ) : (
             /* Map View */
-            <div className="h-[calc(100vh-350px)] min-h-[400px] rounded-lg overflow-hidden border">
+            <div className="h-[calc(100vh-450px)] min-h-[400px] rounded-lg overflow-hidden border">
               <MapContainer
                 center={mapCenter}
                 zoom={12}
@@ -105,7 +213,7 @@ export default function HomePage() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                {data.items.map((post) => (
+                {filteredItems.map((post) => (
                   <Marker key={post.id} position={[post.latitude, post.longitude]}>
                     <Popup>
                       <div className="min-w-[200px]">
@@ -127,21 +235,6 @@ export default function HomePage() {
                   </Marker>
                 ))}
               </MapContainer>
-            </div>
-          )}
-
-          {data.items.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>No food events found in this area.</p>
-              <p className="mt-2">Try increasing the search radius or check back later!</p>
-            </div>
-          )}
-
-          {data.totalPages > 1 && viewMode === 'list' && (
-            <div className="mt-8 flex justify-center">
-              <p className="text-muted-foreground">
-                Showing {data.items.length} of {data.totalCount} events
-              </p>
             </div>
           )}
         </>

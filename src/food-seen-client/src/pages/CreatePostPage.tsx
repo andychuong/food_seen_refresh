@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { postsApi, categoriesApi } from '@/services/api';
+import { useToast } from '@/context/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,9 +13,18 @@ import LocationPicker from '@/components/features/LocationPicker';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import type { CreatePostRequest } from '@/types';
 
+interface FormErrors {
+  title?: string;
+  description?: string;
+  address?: string;
+  location?: string;
+  eventDate?: string;
+}
+
 export default function CreatePostPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState<CreatePostRequest>({
     title: '',
@@ -28,6 +38,8 @@ export default function CreatePostPage() {
   });
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
@@ -38,9 +50,54 @@ export default function CreatePostPage() {
     mutationFn: (data: CreatePostRequest) => postsApi.create(data),
     onSuccess: (post) => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
+      addToast('Event created successfully!', 'success');
       navigate(`/posts/${post.id}`);
     },
+    onError: () => {
+      addToast('Failed to create event. Please try again.', 'error');
+    },
   });
+
+  const validateField = (field: keyof FormErrors, value: unknown): string | undefined => {
+    switch (field) {
+      case 'title':
+        if (!value || (typeof value === 'string' && value.trim().length === 0)) {
+          return 'Title is required';
+        }
+        if (typeof value === 'string' && value.length > 200) {
+          return 'Title must be less than 200 characters';
+        }
+        break;
+      case 'description':
+        if (!value || (typeof value === 'string' && value.trim().length === 0)) {
+          return 'Description is required';
+        }
+        if (typeof value === 'string' && value.length < 10) {
+          return 'Description must be at least 10 characters';
+        }
+        break;
+      case 'address':
+        if (!value || (typeof value === 'string' && value.trim().length === 0)) {
+          return 'Address is required';
+        }
+        break;
+      case 'eventDate':
+        if (!value) {
+          return 'Event date is required';
+        }
+        if (typeof value === 'string' && new Date(value) < new Date()) {
+          return 'Event date must be in the future';
+        }
+        break;
+    }
+    return undefined;
+  };
+
+  const handleBlur = (field: keyof FormErrors) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const error = validateField(field, formData[field as keyof CreatePostRequest]);
+    setErrors((prev) => ({ ...prev, [field]: error }));
+  };
 
   const handleCategoryToggle = (categoryId: string) => {
     setSelectedCategories((prev) => {
@@ -52,17 +109,37 @@ export default function CreatePostPage() {
     });
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {
+      title: validateField('title', formData.title),
+      description: validateField('description', formData.description),
+      address: validateField('address', formData.address),
+      eventDate: validateField('eventDate', formData.eventDate),
+      location: formData.latitude === 0 && formData.longitude === 0
+        ? 'Please select a location on the map'
+        : undefined,
+    };
+
+    setErrors(newErrors);
+    setTouched({ title: true, description: true, address: true, eventDate: true, location: true });
+
+    return !Object.values(newErrors).some((error) => error !== undefined);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    if (validateForm()) {
+      createMutation.mutate(formData);
+    } else {
+      addToast('Please fix the form errors before submitting.', 'warning');
+    }
   };
 
   const isValid =
     formData.title.trim() &&
     formData.description.trim() &&
     formData.address.trim() &&
-    formData.latitude !== 0 &&
-    formData.longitude !== 0 &&
+    (formData.latitude !== 0 || formData.longitude !== 0) &&
     formData.eventDate;
 
   return (
@@ -85,9 +162,12 @@ export default function CreatePostPage() {
                 placeholder="e.g., Free Pizza at Community Center"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="mt-1"
-                required
+                onBlur={() => handleBlur('title')}
+                className={`mt-1 ${touched.title && errors.title ? 'border-destructive' : ''}`}
               />
+              {touched.title && errors.title && (
+                <p className="text-sm text-destructive mt-1">{errors.title}</p>
+              )}
             </div>
 
             <div>
@@ -97,9 +177,12 @@ export default function CreatePostPage() {
                 placeholder="Describe the event, what food is available, any requirements..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="mt-1 min-h-[120px]"
-                required
+                onBlur={() => handleBlur('description')}
+                className={`mt-1 min-h-[120px] ${touched.description && errors.description ? 'border-destructive' : ''}`}
               />
+              {touched.description && errors.description && (
+                <p className="text-sm text-destructive mt-1">{errors.description}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -110,9 +193,12 @@ export default function CreatePostPage() {
                   type="datetime-local"
                   value={formData.eventDate}
                   onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-                  className="mt-1"
-                  required
+                  onBlur={() => handleBlur('eventDate')}
+                  className={`mt-1 ${touched.eventDate && errors.eventDate ? 'border-destructive' : ''}`}
                 />
+                {touched.eventDate && errors.eventDate && (
+                  <p className="text-sm text-destructive mt-1">{errors.eventDate}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="eventEndDate">End Date & Time (optional)</Label>
@@ -152,16 +238,19 @@ export default function CreatePostPage() {
                   onLocationChange={(lat, lng) =>
                     setFormData({ ...formData, latitude: lat, longitude: lng })
                   }
-                  onAddressChange={(address) => setFormData({ ...formData, address })}
+                  onAddressChange={(address) => {
+                    setFormData({ ...formData, address });
+                    setTouched((prev) => ({ ...prev, address: true }));
+                  }}
                 />
               </div>
+              {touched.location && errors.location && (
+                <p className="text-sm text-destructive mt-1">{errors.location}</p>
+              )}
+              {touched.address && errors.address && (
+                <p className="text-sm text-destructive mt-1">{errors.address}</p>
+              )}
             </div>
-
-            {createMutation.error && (
-              <p className="text-sm text-destructive">
-                Failed to create post. Please try again.
-              </p>
-            )}
 
             <div className="flex gap-4">
               <Button
