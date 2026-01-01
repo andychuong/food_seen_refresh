@@ -1,0 +1,55 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+
+# Frontend (React/Vite)
+src/food-seen-client/node_modules/
+src/food-seen-client/dist/
+src/food-seen-client/dist-ssr/
+src/food-seen-client/build/
+src/food-seen-client/.env.local
+src/food-seen-client/coverage/
+
+# Backend (.NET)
+src/FoodSeen.API/bin/
+src/FoodSeen.API/obj/
+src/FoodSeen.API/*.user
+src/FoodSeen.API/.vs/
+
+# Build outputs
+**/bin/
+**/obj/
+
+# NuGet
+*.nupkg
+.nuget/
+packages/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Test results
+TestResults/
+[Tt]est[Rr]esult*/
