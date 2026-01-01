@@ -1,6 +1,6 @@
 # Food Seen
 
-A location-based platform for discovering and sharing free food events in your area. Built with .NET 8, React, and PostgreSQL with PostGIS for geospatial queries.
+A location-based platform for discovering and sharing free food events in your area. Built with .NET 10, React, and PostgreSQL with PostGIS for geospatial queries.
 
 ## Features
 
@@ -13,19 +13,30 @@ A location-based platform for discovering and sharing free food events in your a
 ## Tech Stack
 
 ### Backend
-- .NET 8 Web API
-- Entity Framework Core with PostgreSQL
+
+- .NET 10 Web API
+- Entity Framework Core 10 with PostgreSQL
 - PostGIS for geospatial queries (NetTopologySuite)
 - JWT authentication with refresh tokens
+- FluentValidation for request validation
 
 ### Frontend
+
 - React 18 with TypeScript
 - Vite for fast development
 - TailwindCSS with Shadcn/ui components
 - React-Leaflet for interactive maps
 - TanStack Query for data fetching
 
+### Testing
+
+- xUnit test framework
+- Moq for mocking dependencies
+- FluentAssertions for readable assertions
+- WebApplicationFactory for integration tests
+
 ### Infrastructure
+
 - Docker Compose for local development
 - PostgreSQL with PostGIS extension
 
@@ -34,7 +45,7 @@ A location-based platform for discovering and sharing free food events in your a
 ### Prerequisites
 
 - [Docker](https://www.docker.com/get-started) and Docker Compose
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Node.js 18+](https://nodejs.org/)
 
 ### Quick Start
@@ -96,12 +107,17 @@ VITE_API_URL=http://localhost:5000/api
 ```
 food_seen_2025/
 ├── src/
-│   ├── FoodSeen.API/           # .NET 8 Web API
+│   ├── FoodSeen.API/           # .NET 10 Web API
 │   │   ├── Controllers/        # API endpoints
 │   │   ├── Models/             # Entities, DTOs, Requests
 │   │   ├── Services/           # Business logic
 │   │   ├── Repositories/       # Data access
-│   │   └── Infrastructure/     # Auth, DbContext
+│   │   ├── Infrastructure/     # Auth, DbContext, Constants
+│   │   └── Validators/         # FluentValidation validators
+│   │
+│   ├── FoodSeen.Tests/         # Test project
+│   │   ├── Services/           # Unit tests for services
+│   │   └── Integration/        # Integration tests for controllers
 │   │
 │   └── food-seen-client/       # React frontend
 │       ├── src/
@@ -141,10 +157,19 @@ food_seen_2025/
 ## Development
 
 ### Running Tests
+
+Run all tests from the solution root:
+
 ```bash
-cd src/FoodSeen.API
 dotnet test
 ```
+
+The test suite includes:
+
+- **Unit Tests** (22 tests): PostService and AuthService business logic
+- **Integration Tests** (11 tests): Full HTTP request/response pipeline testing
+
+Tests use an in-memory database for isolation and fast execution.
 
 ### Building for Production
 
