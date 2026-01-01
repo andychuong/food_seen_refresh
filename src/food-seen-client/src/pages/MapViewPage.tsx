@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { postsApi } from '@/services/api';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import RadiusSelector from '@/components/features/RadiusSelector';
+import LocationButton from '@/components/features/LocationButton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
@@ -11,7 +13,7 @@ import { formatDate } from '@/lib/utils';
 
 export default function MapViewPage() {
   const [radiusKm, setRadiusKm] = useState(10);
-  const { location, loading: locationLoading } = useGeolocation();
+  const { location, loading: locationLoading, error: locationError, requestLocation } = useGeolocation();
 
   const defaultCenter: [number, number] = location
     ? [location.latitude, location.longitude]
@@ -36,20 +38,18 @@ export default function MapViewPage() {
 
   return (
     <div className="h-[calc(100vh-200px)] flex flex-col">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold">Map View</h1>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Radius:</span>
-          <select
-            value={radiusKm}
-            onChange={(e) => setRadiusKm(Number(e.target.value))}
-            className="px-2 py-1 rounded border bg-background"
-          >
-            <option value={5}>5 km</option>
-            <option value={10}>10 km</option>
-            <option value={25}>25 km</option>
-            <option value={50}>50 km</option>
-          </select>
+        <div className="flex items-center gap-4">
+          <LocationButton
+            loading={locationLoading}
+            hasLocation={!!location}
+            error={locationError}
+            onRequest={requestLocation}
+          />
+          {location && (
+            <RadiusSelector value={radiusKm} onChange={setRadiusKm} />
+          )}
         </div>
       </div>
 

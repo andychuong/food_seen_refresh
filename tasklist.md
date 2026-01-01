@@ -48,15 +48,18 @@
 - [ ] Add email verification flow
 - [ ] Build social login buttons
 
-## Phase 4: Location Features Polish
+## Phase 4: Location Features Polish ✅ COMPLETE
 
-- [ ] Add radius selector UI component
-- [ ] Implement "use my location" button with permission handling
+- [x] Add radius selector UI component
+- [x] Implement "use my location" button with permission handling
+- [x] Add map/list view toggle on home page
+- [x] Handle location permission denied gracefully
+- [x] Optimize geospatial queries with proper indexing (GIST index on Location column)
+
+### Future Location Enhancements (Optional)
+
 - [ ] Add default location settings to user profile page
-- [ ] Implement location search/autocomplete (optional: integrate geocoding API)
-- [ ] Add map/list view toggle on home page
-- [ ] Optimize geospatial queries with proper indexing
-- [ ] Handle location permission denied gracefully
+- [ ] Implement location search/autocomplete (integrate geocoding API)
 
 ## Phase 5: Testing & Polish
 

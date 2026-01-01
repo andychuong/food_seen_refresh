@@ -1,23 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { postsApi } from '@/services/api';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import PostCard from '@/components/features/PostCard';
+import RadiusSelector from '@/components/features/RadiusSelector';
+import LocationButton from '@/components/features/LocationButton';
+import ViewToggle, { type ViewMode } from '@/components/features/ViewToggle';
 import { Button } from '@/components/ui/button';
-import { MapPin, Loader2, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 export default function HomePage() {
   const [radiusKm, setRadiusKm] = useState(10);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const { location, loading: locationLoading, error: locationError, requestLocation } = useGeolocation();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['posts', 'nearby', location?.latitude, location?.longitude, radiusKm],
     queryFn: () =>
       location
-        ? postsApi.getNearby(location.latitude, location.longitude, radiusKm)
-        : postsApi.getAll(),
+        ? postsApi.getNearby(location.latitude, location.longitude, radiusKm, 1, 100)
+        : postsApi.getAll(1, 100),
     enabled: !locationLoading,
   });
+
+  const mapCenter: [number, number] = location
+    ? [location.latitude, location.longitude]
+    : [37.7749, -122.4194]; // Default to SF
 
   return (
     <div>
@@ -28,42 +40,32 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Location status */}
+      {/* Controls bar */}
       <div className="mb-6 p-4 rounded-lg bg-secondary/50">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center">
-            <MapPin className="h-5 w-5 mr-2 text-primary" />
-            {locationLoading ? (
-              <span className="text-muted-foreground">Getting your location...</span>
-            ) : location ? (
-              <span>
-                Showing events within{' '}
-                <select
-                  value={radiusKm}
-                  onChange={(e) => setRadiusKm(Number(e.target.value))}
-                  className="inline-block px-2 py-1 rounded border bg-background"
-                >
-                  <option value={5}>5 km</option>
-                  <option value={10}>10 km</option>
-                  <option value={25}>25 km</option>
-                  <option value={50}>50 km</option>
-                </select>
-                {' '}of your location
-              </span>
-            ) : (
-              <span className="text-muted-foreground">
-                {locationError || 'Enable location to see nearby events'}
-              </span>
+          <div className="flex items-center gap-4 flex-wrap">
+            <LocationButton
+              loading={locationLoading}
+              hasLocation={!!location}
+              error={locationError}
+              onRequest={requestLocation}
+            />
+            {location && (
+              <RadiusSelector value={radiusKm} onChange={setRadiusKm} />
             )}
           </div>
-
-          {!location && !locationLoading && (
-            <Button onClick={requestLocation} variant="outline" size="sm">
-              <MapPin className="h-4 w-4 mr-2" />
-              Use My Location
-            </Button>
-          )}
+          <ViewToggle value={viewMode} onChange={setViewMode} />
         </div>
+
+        {/* Location status message */}
+        {!location && !locationLoading && locationError && (
+          <div className="mt-3 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+            <p className="text-sm text-destructive">{locationError}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Showing all events. Enable location to see nearby events sorted by distance.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Loading state */}
@@ -81,14 +83,52 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Posts grid */}
+      {/* Content based on view mode */}
       {data && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data.items.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </div>
+          {viewMode === 'list' ? (
+            /* List View */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {data.items.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          ) : (
+            /* Map View */
+            <div className="h-[calc(100vh-350px)] min-h-[400px] rounded-lg overflow-hidden border">
+              <MapContainer
+                center={mapCenter}
+                zoom={12}
+                className="h-full w-full"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {data.items.map((post) => (
+                  <Marker key={post.id} position={[post.latitude, post.longitude]}>
+                    <Popup>
+                      <div className="min-w-[200px]">
+                        <h3 className="font-semibold mb-1">{post.title}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{post.address}</p>
+                        <p className="text-sm mb-2">{formatDate(post.eventDate)}</p>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {post.categories.map((cat) => (
+                            <Badge key={cat} variant="secondary" className="text-xs">
+                              {cat}
+                            </Badge>
+                          ))}
+                        </div>
+                        <Link to={`/posts/${post.id}`}>
+                          <Button size="sm" className="w-full">View Details</Button>
+                        </Link>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            </div>
+          )}
 
           {data.items.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
@@ -97,7 +137,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {data.totalPages > 1 && (
+          {data.totalPages > 1 && viewMode === 'list' && (
             <div className="mt-8 flex justify-center">
               <p className="text-muted-foreground">
                 Showing {data.items.length} of {data.totalCount} events
